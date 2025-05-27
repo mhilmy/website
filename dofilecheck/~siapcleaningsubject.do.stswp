@@ -3,7 +3,7 @@ set more off
 capture log close
 
 global IslEd "D:/Dropbox/Islamic Education/Data"
-global IslEd "$Dropbox/Islamic Education/Data"
+global IslEd "~/Dropbox/Islamic Education/Data"
 
 *MH note Mar2024: This code updates 01i_clean_SIAPsubj_v2-sam.do (NB below) to add sci, math, etc.
 
@@ -154,7 +154,7 @@ forval i = 1/``hari'_count' {
   gen `hari'`i'_humduration = `hari'`i'_duration if `hari'`i'_hum == 1
   order `hari'`i'_hum `hari'`i'_humduration, after(`hari'`i'_sciduration)
   * Generate duration variable specific to tematik subjects
-  gen `hari'`i'_tema = regexm(`hari'`i'_subject,"^TEMATIK")  if `hari'`i'_subject!=""
+  gen `hari'`i'_tema = regexm(`hari'`i'_subject,"^TEMATIK ")  if `hari'`i'_subject!=""
   gen `hari'`i'_temaduration = `hari'`i'_duration if `hari'`i'_tema == 1
   order `hari'`i'_tema `hari'`i'_temaduration, after(`hari'`i'_humduration)
 }
