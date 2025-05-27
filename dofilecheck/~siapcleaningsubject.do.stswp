@@ -2,8 +2,8 @@ clear
 set more off
 capture log close
 
-global IslEd "D:/Dropbox/Islamic Education/Data/SIAP"
-global IslEd "~/Dropbox/Islamic Education/Data/SIAP"
+global IslEd "D:/Dropbox/Islamic Education/Data"
+global IslEd "$Dropbox/Islamic Education/Data"
 
 *MH note Mar2024: This code updates 01i_clean_SIAPsubj_v2-sam.do (NB below) to add sci, math, etc.
 
@@ -20,7 +20,7 @@ saveold "$IslEd/sekolah_timetable_v2", replace
 import excel using "$IslEd/rawexcel/sekolah_profile_v2.xlsx", firstrow clear
 saveold "$IslEd/sekolah_profile_v2", replace
 */
-use "$IslEd/sekolah_timetable_v2", clear
+use "$IslEd/SIAP/sekolah_timetable_v2", clear
 *use "/Users/masyhur/Dropbox/Islamic Education/Data/SIAP/sekolah_timetable1pct.dta", clear
 rename *, lower
 destring tingkat, replace
@@ -97,12 +97,12 @@ export excel using "Subjectlist_v2.xlsx", replace
 *--->NOTE: we need to clean the above if subject list changes in batch 2 
 
 * Get tagged list
-import excel using "$IslEd/Subjectlist_tagged.xlsx", clear firstrow
+import excel using "$IslEd/SIAP/Subjectlist_tagged.xlsx", clear firstrow
 tempfile subjtag
 save `subjtag'
 
 
-use sekolah_timetable_clean_v2,clear
+use SIAP/sekolah_timetable_clean_v2,clear
 foreach hari in senin selasa rabu kamis jumat sabtu minggu{
 ds `hari'*_subject, v(32)
 local `hari'_count : word count `r(varlist)'
@@ -154,7 +154,7 @@ forval i = 1/``hari'_count' {
   gen `hari'`i'_humduration = `hari'`i'_duration if `hari'`i'_hum == 1
   order `hari'`i'_hum `hari'`i'_humduration, after(`hari'`i'_sciduration)
   * Generate duration variable specific to tematik subjects
-  gen `hari'`i'_tema = regexm(`hari'`i'_subject,"TEMATIK") if `hari'`i'_subject!=""
+  gen `hari'`i'_tema = regexm(`hari'`i'_subject,"^TEMATIK")  if `hari'`i'_subject!=""
   gen `hari'`i'_temaduration = `hari'`i'_duration if `hari'`i'_tema == 1
   order `hari'`i'_tema `hari'`i'_temaduration, after(`hari'`i'_humduration)
 }
@@ -182,8 +182,8 @@ quietly compress
 missings dropvars, force
 keep url tahunajaran semester tingkat rombel weekly*
 
-saveold sekolah_timetable_clean_v3_tagged, replace
-use "$IslEd/sekolah_timetable_clean_v3_tagged", clear
+saveold "$IslEd/SIAP/sekolah_timetable_clean_v3_tagged", replace
+use "$IslEd/SIAP/sekolah_timetable_clean_v3_tagged", clear
 
 **//calculate share of unstructured subject names not already captured. Most are captured here.
 
