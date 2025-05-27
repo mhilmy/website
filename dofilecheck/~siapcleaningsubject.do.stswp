@@ -3,34 +3,20 @@ set more off
 capture log close
 
 global IslEd "D:/Dropbox/Islamic Education/Data/SIAP"
-global IslEd "~/Dropbox/Islamic Education/Data/SIAP"
+
+*NB: this is Sam's code from December. Seems Masyhur updated the code later to calculate some of the subject-specific measures.
+*	I believe they are the same as mine but just combine the different batches whereas I had them separate before...
 
 cd "$IslEd"
 /*
 insheet using "$IslEd/rawexcel/sekolah_subjects.csv", double clear
 
 import excel using "$IslEd/rawexcel/sekolah_timetable_v2.xlsx", firstrow clear
-recast strL Senin-Minggu
-compress
 saveold "$IslEd/sekolah_timetable_v2", replace
-import excel using "$IslEd/rawexcel/sekolah_timetable.xlsx", firstrow clear
-recast strL Senin-Minggu
-compress
-saveold "$IslEd/sekolah_timetable", replace
 import excel using "$IslEd/rawexcel/sekolah_profile_v2.xlsx", firstrow clear
 saveold "$IslEd/sekolah_profile_v2", replace
-
-use "$IslEd/sekolah_timetable_v2",clear
-append using "$IslEd/sekolah_timetable"
-duplicates drop
-missings dropobs Senin-Minggu
-duplicates drop URL Tingkat Rombel, force
-label data "Timetable data, combined v1 and v2 scrape"
-saveold "$IslEd/sekolah_profile_combined", replace
-
-** NEED TO ADD AGAIN MISSINGS DROPOBS AND APPEND DUPLICATE DROP
 */
-use "$IslEd/sekolah_timetable_combined", clear
+use "$IslEd/sekolah_timetable_v2", clear
 *use "/Users/masyhur/Dropbox/Islamic Education/Data/SIAP/sekolah_timetable1pct.dta", clear
 rename *, lower
 destring tingkat, replace
@@ -106,31 +92,12 @@ export excel using "Subjectlist_v2.xlsx", replace
 
 *--->NOTE: we need to clean the above if subject list changes in batch 2 
 
-
-*use "$IslEd/sekolah_timetable_clean_v2", clear
-*use "$IslEd/sekolah_timetable_clean_combined", clear
-use "$IslEd/SIAP/sekolah_timetable_clean_combined", clear
-
-preserve
 * Get tagged list
-//if in cluster it is "$IslEd/Subjectlist_tagged.xlsx"
-import excel using "$IslEd/SIAP/Subjectlist_tagged.xlsx", clear firstrow
+import excel using "$IslEd/Subjectlist_tagged.xlsx", clear firstrow
 tempfile subjtag
 save `subjtag'
-import excel using "$IslEd/SIAP/SUBJECT_TAG_V2.xlsx", clear
-rename (B C) (subjectname islamsubjecttype)
-replace islamsubjecttype = "SEJARAH" if inlist(islamsubjecttype,"AHLI SUNAH WAL JAMA'AH", ///
-	"AL KHAIRAAT","MUHAMMADIYAH","NAHDLATUL ULAMA","NAHDLATUL WATHAN","AL WASHLIYAH")
-replace islamsubjecttype = "GENERAL ISLAM" if inlist(islamsubjecttype,"DAKWAH","LOGIKA","KALIGRAFI","KITAB KUNING","UNCATEGORIZED")
-replace islamsubjecttype = "FIKIH" if islamsubjecttype == "DOA" 
-tempfile subjtag2
-save `subjtag2'
-restore
-*merge m:1 subjectname using `subjtag2', nogenerate keep(match master)
-*rename senin1_subject subjectname
-*merge m:1 subjectname using `subjtag', nogenerate keep(match master)
-*merge m:1 subjectname using `subjtag2', nogenerate keep(match master)
 
+use "$IslEd/sekolah_timetable_clean_v2", clear
 
 foreach hari in senin selasa rabu kamis jumat sabtu minggu{
 ds `hari'*_subject, v(32)
@@ -140,9 +107,8 @@ display "``hari'_count'"
 forval i = 1/``hari'_count' {
   rename `hari'`i'_subject subjectname
   * Tag subject as islamic/not
-  merge m:1 subjectname using `subjtag', nogenerate keep(match master) //to get indicator of islamic subjects
-  merge m:1 subjectname using `subjtag2', nogenerate keep(match master) //to get type of islamic subject
-  rename (subjectname islamsubject islamsubjecttype) (`hari'`i'_subject `hari'`i'_islam `hari'`i'_islamtype)
+  merge m:1 subjectname using `subjtag', nogenerate keep(match master)
+  rename (subjectname islamsubject) (`hari'`i'_subject `hari'`i'_islam)
   * Generate duration variable specific to islam subjects only
   gen `hari'`i'_islamduration = `hari'`i'_duration if `hari'`i'_islam == 1
   order `hari'`i'_islam `hari'`i'_islamduration, after(`hari'`i'_duration)
@@ -158,16 +124,15 @@ forval i = 1/``hari'_count' {
   gen `hari'`i'_salaf = regexm(`hari'`i'_subject,"SALAF") if `hari'`i'_subject!=""
   gen `hari'`i'_salafduration = `hari'`i'_duration if regexm(`hari'`i'_subject,"SALAF")
   order `hari'`i'_salaf `hari'`i'_salafduration, after(`hari'`i'_pjokduration)
-  
-  gen `hari'`i'_akidahduration = `hari'`i'_duration if `hari'`i'_islamtype == "AKIDAH AKHLAK"
-  gen `hari'`i'_quranduration = `hari'`i'_duration if `hari'`i'_islamtype == "AL QURAN HADIS"
-  gen `hari'`i'_bhsarabduration = `hari'`i'_duration if `hari'`i'_islamtype == "BAHASA ARAB"
-  gen `hari'`i'_fikihduration = `hari'`i'_duration if `hari'`i'_islamtype == "FIKIH"
-  gen `hari'`i'_genislamduration = `hari'`i'_duration if `hari'`i'_islamtype == "GENERAL ISLAM"
-  gen `hari'`i'_historyislamduration = `hari'`i'_duration if `hari'`i'_islamtype == "SEJARAH"
-  order `hari'`i'_akidahduration `hari'`i'_quranduration `hari'`i'_bhsarabduration ///
-	`hari'`i'_fikihduration `hari'`i'_genislamduration `hari'`i'_historyislamduration, ///
-	after(`hari'`i'_salafduration) 
+  * Generate duration variable specific to Bahasa Indo subjects
+  gen `hari'`i'_indo = regexm(`hari'`i'_subject,"INDO") & regexm(`hari'`i'_subject,"BAHASA") if `hari'`i'_subject!=""
+  gen `hari'`i'_indoduration = `hari'`i'_duration if regexm(`hari'`i'_subject,"INDO") & regexm(`hari'`i'_subject,"BAHASA")
+  order `hari'`i'_indo `hari'`i'_indoduration, after(`hari'`i'_salafduration)
+  * Generate duration variable specific to Bahasa Arab subjects
+  gen `hari'`i'_arab = regexm(`hari'`i'_subject,"ARAB") & !regexm(`hari'`i'_subject,"FIQ") & !regexm(`hari'`i'_subject,"FIK")  if `hari'`i'_subject!=""
+  gen `hari'`i'_arabduration = `hari'`i'_duration if regexm(`hari'`i'_subject,"ARAB") & !regexm(`hari'`i'_subject,"FIQ") & !regexm(`hari'`i'_subject,"FIK") 
+  order `hari'`i'_arab `hari'`i'_arabduration, after(`hari'`i'_indoduration)  
+
 }
 
 }
@@ -177,52 +142,18 @@ drop if missing(senin1_subject) & mi(selasa1_subject) & mi(rabu1_subject) & ///
 
 foreach hari in senin selasa rabu kamis jumat sabtu minggu{
   egen `hari'_totalduration = rowtotal(`hari'*_duration)
-  foreach sub in islam ppkn pjok salaf akidah quran bhsarab fikih genislam historyislam{
+  foreach sub in islam ppkn pjok salaf indo arab {
 	egen `hari'_total`sub'duration = rowtotal(`hari'*_`sub'duration)
 	}
 }
 
 egen weekly_totalduration = rowtotal(*totalduration)
-foreach sub in islam ppkn pjok salaf akidah quran bhsarab fikih genislam historyislam{
+foreach sub in islam ppkn pjok salaf indo arab {
 	egen weekly_total`sub'duration = rowtotal(*total`sub'duration)
 	gen weekly_`sub'share = weekly_total`sub'duration / weekly_totalduration
 }
 
 order weekly_* *_totalduration *_total*duration, before(senin1_subject)
-compress
-missings dropvars, force
-recast strL *_subject *_islamtype
-compress
-saveold sekolah_timetable_clean_combined_tagged, replace
+saveold sekolah_timetable_clean_v2_tagged, replace
 
-use sekolah_profile_v2, clear
-append using sekolah_profile
-missings dropobs, force
-duplicates drop
-egen missingfield = rowmiss(_all)
-gsort URL missingfield 
-by URL: gen n = _n
-drop if n != 1
-drop n missingfield
-recast strL guru Nama Akreditasi Alamat NomorTelpon NomorFaks Email Situs Lintang Bujur WaktuBelajar Kota-Kelurahan
-compress
-save sekolah_profile_combined, replace
-
-use sekolah_profile_combined, clear
-rename URL website
-merge 1:1 website using SIAP, keep(match master) nogenerate keepusing(madrasah islam)
-rename website url
-merge 1:m url using sekolah_timetable_clean_combined_tagged
-
- gen totalhours = totalduration/60
- format %4.0f totalhours
-  rename weekly_* *
-  format %5.2f *share
-  
-tabstat totalhours *share if madrasah == 1, by(tingkat) format
-tabstat totalhours *share if islam == 1 & madrasah ==0, by(tingkat) format
-tabstat totalhours *share if inlist(1,islam,madrasah), by(tingkat) format
-
-label data "SIAP scrape timetable merged with school profile, v1 and v2 scrapes combined"
-save SIAP_profile_timetable_tagged, replace
 
